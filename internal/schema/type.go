@@ -15,6 +15,7 @@ const (
 	cTypeUInt64  = "uint64"
 	cTypeByte    = "byte"
 	cUnsigned    = "unsigned"
+	cTypeBool = "bool"
 )
 
 //Typer holds two methods allow user easilly get the information of a type
@@ -51,6 +52,16 @@ func intTypeWrapper(s string) typer {
 	}
 	return intType(s)
 }
+
+func boolTypeWrapper(s string) typer {
+	s = strings.ToLower(s)
+	u := boolType(s)
+	if u.Match() {
+		return u
+	}
+	return intType(s)
+}
+
 
 func stringTypeWrapper(s string) typer {
 	return stringType(strings.ToLower(s))
@@ -109,6 +120,16 @@ func (b int8Type) Match() bool {
 	return strings.Contains(string(b), "tinyint")
 }
 
+type boolType string
+
+func (b boolType) Type() string {
+	return cTypeBool
+}
+
+func (b boolType) Match() bool {
+	return strings.Contains(string(b), "tinyint(1)")
+}
+
 type uintType string
 
 func (ui uintType) Type() string {
@@ -164,5 +185,5 @@ func (t timeType) Type() string {
 }
 
 func (t timeType) Match() bool {
-	return t == "timestamp" || t == "date" || t == "datetime"
+	return t == "timestamp" || t == "date" || t == "datetime" || strings.Contains(string(t),"datetime")
 }

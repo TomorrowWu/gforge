@@ -8,103 +8,298 @@ import (
 
 const (
 	daoCode = `
-	//GetOne gets one record from table {{.TableName}} by condition "where"
-	func GetOne(db *sql.DB, where map[string]interface{}) (*{{.StructName}}, error) {
-		if nil == db {
-			return nil, errors.New("sql.DB object couldn't be nil")
+	func (m *{{.StructName}}) TableName() string {
+	return m.GetTableKey()
+}
+
+func (m *{{.StructName}}) GetDbKey() string {
+	return "{{.DbName}}"
+}
+
+func (m *{{.StructName}}) GetTableKey() string {
+	return "{{ .TableName }}"
+}
+	
+	/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 判断数据是否存在（多个自定义复杂条件查询）
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) IsExists(
+	query interface{},
+	args ...interface{}) (bool, error) {
+
+	if count, err := m.GetCount(query, args...); err != nil {
+		if err == gorm.RecordNotFound {
+			return false, nil
 		}
-		cond,vals,err := builder.BuildSelect("{{.TableName}}", where, nil)
-		if nil != err {
-			return nil, err
+		return false, err
+	} else {
+		if count > 0 {
+			return true, nil
 		}
-		row,err := db.Query(cond, vals...)
-		if nil != err || nil == row {
-			return nil, err
-		}
-		defer row.Close()
-		var res *{{.StructName}}
-		err = scanner.Scan(row, &res)
-		return res,err
 	}
 
-	//GetMulti gets multiple records from table {{.TableName}} by condition "where"
-	func GetMulti(db *sql.DB, where map[string]interface{}) ([]*{{.StructName}}, error) {
-		if nil == db {
-			return nil, errors.New("sql.DB object couldn't be nil")
-		}
-		cond,vals,err := builder.BuildSelect("{{.TableName}}", where, nil)
-		if nil != err {
-			return nil, err
-		}
-		row,err := db.Query(cond, vals...)
-		if nil != err || nil == row {
-			return nil, err
-		}
-		defer row.Close()
-		var res []*{{.StructName}}
-		err = scanner.Scan(row, &res)
-		return res,err
+	return false, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取数据记录数（多个自定义复杂条件查询）
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) GetCount(
+	query interface{},
+	args ...interface{}) (int64, error) {
+	m.ModelDbMap(m)
+	defer m.DbMap.Close()
+
+	paging := ging.Paging{
+		PagingIndex: 1,
+		PagingSize:  1,
 	}
 
-	//Insert inserts an array of data into table {{.TableName}}
-	func Insert(db *sql.DB, data []map[string]interface{}) (int64, error) {
-		if nil == db {
-			return nil, errors.New("sql.DB object couldn't be nil")
-		}
-		cond, vals, err := builder.BuildInsert("{{.TableName}}", data)
-		if nil != err {
-			return 0, err
-		}
-		result,err := db.Exec(cond, vals...)
-		if nil != err || nil == result {
-			return 0, err
-		}
-		return result.LastInsertId()
+	if err := m.DbMap.Model(m).Where(query, args...).Count(
+		&paging.TotalRecord).Error; err != nil {
+		return 0, err
 	}
 
-	//Update updates the table {{.TableName}}
-	func Update(db *sql.DB, where,data map[string]interface{}) (int64, error) {
-		if nil == db {
-			return 0, errors.New("sql.DB object couldn't be nil")
+	return paging.TotalRecord, nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取单条数据（单个简单条件查询）
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) Select(fieldName string, fieldValue interface{}) error {
+	m.ModelDbMap(m)
+	defer m.DbMap.Close()
+
+	query := map[string]interface{}{}
+	query[fieldName] = fieldValue
+
+	if err := m.DbMap.Find(m, query).Error; err != nil {
+		if err == gorm.RecordNotFound {
+			return common.NotFoundError
 		}
-		cond,vals,err := builder.BuildUpdate("{{.TableName}}", where, data)
-		if nil != err {
-			return 0, err
-		}
-		result,err := db.Exec(cond, vals...)
-		if nil != err {
-			return 0, err
-		}
-		return result.RowsAffected()
+		return err
 	}
 
-	// Delete deletes matched records in {{.TableName}}
-	func Delete(db *sql.DB, where,data map[string]interface{}) (int64, error) {
-		if nil == db {
-			return 0, errors.New("sql.DB object couldn't be nil")
+	return nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取单条数据（多个自定义复杂条件查询）
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) SelectQuery(query interface{}, args ...interface{}) error {
+	m.ModelDbMap(m)
+	defer m.DbMap.Close()
+
+	if err := m.DbMap.Where(
+		query, args...).Find(m).Error; err != nil {
+		if err == gorm.RecordNotFound {
+			return common.NotFoundError
 		}
-		cond,vals,err := builder.BuildDelete("{{.TableName}}", where)
-		if nil != err {
-			return 0, err
-		}
-		result,err := db.Exec(cond, vals...)
-		if nil != err {
-			return 0, err
-		}
-		return result.RowsAffected()
+		return err
 	}
+
+	return nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取单条数据（多个自定义复杂条件查询）
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) SelectOrderQuery(
+	query interface{},
+	sortorder string,
+	args ...interface{}) error {
+	m.ModelDbMap(m)
+	defer m.DbMap.Close()
+
+	if err := m.DbMap.Where(
+		query, args...).Order(sortorder).Limit(1).Find(m).Error; err != nil {
+		if err == gorm.RecordNotFound {
+			return common.NotFoundError
+		}
+		return err
+	}
+
+	return nil
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取单条数据（主键标识简单条件查询）
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) SelectById(id interface{}) error {
+	if err := model.GetFromCache(id.(string), m); err == nil {
+		if len(m.Id) > 0 {
+			return nil
+		}
+	}
+
+	m.ModelDbMap(m)
+	defer m.DbMap.Close()
+
+	params := map[string]interface{}{
+		"id": id,
+	}
+
+	if err := m.DbMap.Find(m, params).Error; err != nil {
+		if err == gorm.RecordNotFound {
+			return common.NotFoundError
+		}
+		return err
+	}
+
+	model.AddToCache(m.Id, m)
+
+	return nil
+}
+
+/* ================================================================================
+ * query: []interface{} || map[string]interface{} || string
+ * args: if string: interface{}...
+ * ================================================================================ */
+func (m *{{.StructName}}) SelectAll(
+	paging *ging.Paging,
+	query interface{},
+	args ...interface{},
+) ([]*DebitDetail, error) {
+	m.ModelDbMap(m)
+	defer m.DbMap.Close()
+
+	var mList []*{{.StructName}} = make([]*{{.StructName}}, 0)
+	var err error = nil
+
+	if paging != nil {
+		isTotalRecord := true
+		if paging.IsTotalOnce {
+			if paging.PagingIndex > 1 {
+				isTotalRecord = false
+			}
+		}
+
+		if isTotalRecord && paging.PagingSize > 0 {
+			if len(paging.Group) == 0 {
+				err = m.DbMap.Model(m).
+					Where(query, args...).
+					Count(&paging.TotalRecord).
+					Order(paging.Sortorder).
+					Offset(paging.Offset()).
+					Limit(paging.PagingSize).
+					Find(&mList).Error
+			} else {
+				err = m.DbMap.Model(m).
+					Where(query, args...).
+					Group(paging.Group).
+					Count(&paging.TotalRecord).
+					Order(paging.Sortorder).
+					Offset(paging.Offset()).
+					Limit(paging.PagingSize).
+					Find(&mList).Error
+			}
+
+			paging.SetTotalRecord(paging.TotalRecord)
+		} else {
+			if len(paging.Group) == 0 {
+				err = m.DbMap.Model(m).
+					Where(query, args...).
+					Order(paging.Sortorder).
+					Find(&mList).Error
+			} else {
+				err = m.DbMap.Model(m).
+					Where(query, args...).
+					Group(paging.Group).
+					Order(paging.Sortorder).
+					Find(&mList).Error
+			}
+		}
+	} else {
+		err = m.DbMap.Where(query, args...).Find(&mList).Error
+	}
+
+	if err != nil {
+		if err == gorm.RecordNotFound {
+			err = common.NotFoundError
+		}
+	}
+
+	return mList, err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 插入数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) Insert() error {
+	if m.DbMap == nil {
+		m.ModelDbMap(m)
+		defer m.DbMap.Close()
+	}
+
+	if err := m.DbMap.Create(m).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/* ================================================================================
+ * data type:
+ * Model{"fieldName":"value"...}
+ * map[string]interface{}
+ * key1,value1,key2,value2
+ * ================================================================================ */
+func (m *{{.StructName}}) Update(data ...interface{}) (int64, error) {
+	if len(m.Id) == 0 || len(data) == 0 {
+		return 0, common.ArgumentError
+	}
+
+	if m.DbMap == nil {
+		m.ModelDbMap(m)
+		defer m.DbMap.Close()
+	}
+
+	dbContext := m.DbMap.Model(m).UpdateColumns(data)
+	rowsAffected, err := dbContext.RowsAffected, dbContext.Error
+
+	if err == nil {
+		model.RemoveFromCache(m.Id)
+	}
+
+	return rowsAffected, err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 删除数据
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (m *{{.StructName}}) Delete() (int64, error) {
+	if len(m.Id) == 0 {
+		return 0, common.ArgumentError
+	}
+
+	if m.DbMap == nil {
+		m.ModelDbMap(m)
+		defer m.DbMap.Close()
+	}
+
+	dbContext := m.DbMap.Delete(m)
+	rowsAffected, err := dbContext.RowsAffected, dbContext.Error
+
+	if err == nil {
+		model.RemoveFromCache(m.Id)
+	}
+
+	return rowsAffected, err
+}
 	`
 )
 
 type fillData struct {
 	StructName string
 	TableName  string
+	DbName string
 }
 
 // GenerateDao generates Dao code
-func GenerateDao(tableName, structName string) (io.Reader, error) {
+func GenerateDao(dbName,tableName, structName string) (io.Reader, error) {
 	var buff bytes.Buffer
 	err := template.Must(template.New("dao").Parse(daoCode)).Execute(&buff, fillData{
+		DbName:dbName,
 		StructName: structName,
 		TableName:  tableName,
 	})

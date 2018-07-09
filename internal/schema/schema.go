@@ -50,6 +50,9 @@ func createStructSourceCode(cols columnSlice, tableName string) (io.Reader, stri
 		FieldList:  make([]sourceColumn, len(cols)),
 	}
 	for idx, col := range cols {
+		if col.GetName() == "ID" {
+			continue
+		}
 		colType, err := col.GetType()
 		if nil != err {
 			continue
@@ -57,7 +60,7 @@ func createStructSourceCode(cols columnSlice, tableName string) (io.Reader, stri
 		fillData.FieldList[idx] = sourceColumn{
 			Name:      col.GetName(),
 			Type:      colType,
-			StructTag: fmt.Sprintf("`json:\"%s\"`", col.Name),
+			StructTag: fmt.Sprintf("`gorm:\"%s\"`", col.Name),
 		}
 	}
 	var buff bytes.Buffer
@@ -83,6 +86,7 @@ type sourceColumn struct {
 const codeTemplate = `
 // {{ .StructName }} is a mapping object for {{ .TableName }} table in mysql
 type {{.StructName}} struct {
+model.BaseModel
 {{- range .FieldList }}
 	{{ .Name }} {{ .Type }} {{ .StructTag }}
 {{- end}}

@@ -1,11 +1,13 @@
 package schema
 
+import "strings"
+
 const (
 	cUnderScore = "_"
 )
 
 var (
-	typeWrappers = []typeWrapper{i64TypeWrapper, byteTypeWrapper, intTypeWrapper, float64TypeWrapper, stringTypeWrapper, timeTypeWrapper}
+	typeWrappers = []typeWrapper{boolTypeWrapper,i64TypeWrapper,byteTypeWrapper, intTypeWrapper, float64TypeWrapper, stringTypeWrapper, timeTypeWrapper}
 )
 
 // Column stands for a column of a table
@@ -30,6 +32,7 @@ func (c *column) GetName() string {
 }
 
 func getType(t string) string {
+	t = strings.ToLower(t)
 	for _, wrapper := range typeWrappers {
 		typer := wrapper(t)
 		if typer.Match() {
