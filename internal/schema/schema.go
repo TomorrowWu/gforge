@@ -9,6 +9,7 @@ import (
 
 	"github.com/didi/gendry/builder"
 	"github.com/didi/gendry/scanner"
+	"strings"
 )
 
 const (
@@ -50,7 +51,7 @@ func createStructSourceCode(cols columnSlice, tableName string) (io.Reader, stri
 		FieldList:  make([]sourceColumn, len(cols)),
 	}
 	for idx, col := range cols {
-		if col.GetName() == "ID" {
+		if strings.ToLower(col.GetName()) == "id" {
 			continue
 		}
 		colType, err := col.GetType()
@@ -60,7 +61,7 @@ func createStructSourceCode(cols columnSlice, tableName string) (io.Reader, stri
 		fillData.FieldList[idx] = sourceColumn{
 			Name:      col.GetName(),
 			Type:      colType,
-			StructTag: fmt.Sprintf("`gorm:\"%s\"`", col.Name),
+			StructTag: fmt.Sprintf("`gorm:\"%s\"` //%s", col.Name,col.Comment),
 		}
 	}
 	var buff bytes.Buffer
