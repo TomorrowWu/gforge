@@ -159,7 +159,7 @@ func (m *{{.StructName}}) SelectAll(
 	paging *ging.Paging,
 	query interface{},
 	args ...interface{},
-) ([]*DebitDetail, error) {
+) ([]*{{.StructName}}, error) {
 	m.ModelDbMap(m)
 	defer m.DbMap.Close()
 
@@ -300,7 +300,7 @@ func GenerateDao(dbName,tableName, structName string) (io.Reader, error) {
 	var buff bytes.Buffer
 	err := template.Must(template.New("dao").Parse(daoCode)).Execute(&buff, fillData{
 		DbName:dbName,
-		StructName: structName,
+		StructName: structName+"Model",
 		TableName:  tableName,
 	})
 	if nil != err {
